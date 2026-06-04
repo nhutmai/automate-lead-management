@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Lead {
+  id                      String   @id @default(cuid())
+  name                    String
+  phone                   String
+  email                   String?
+  source                  String
+  originalServiceInterest String?
+  message                 String
+  aiServiceInterest       String?
+  leadTemperature         String
+  urgency                 String
+  intentSummary           String?
+  recommendedAction       String?
+  suggestedReply          String?
+  assignedTeam            String?
+  status                  String   @default("New")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
