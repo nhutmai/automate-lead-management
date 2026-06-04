@@ -1,20 +1,37 @@
 import type { LeadInput } from "./validation";
 
 export type LeadClassification = {
-  serviceInterest?: string;
+  serviceInterest: string;
   leadTemperature: "Hot" | "Warm" | "Cold";
   urgency: "High" | "Medium" | "Low";
   intentSummary: string;
   recommendedAction: string;
-  suggestedReply?: string;
-  assignedTeam?: string;
+  suggestedReply: string;
+  assignedTeam: string;
 };
 
+function getFallbackClassification(lead?: LeadInput): LeadClassification {
+  return {
+    serviceInterest: lead?.serviceInterest || "Manual review required",
+    leadTemperature: "Warm",
+    urgency: "Medium",
+    intentSummary: "AI classification failed. Manual review required.",
+    recommendedAction: "Review and contact customer manually.",
+    suggestedReply:
+      "Thank you for contacting us. Our clinic team will review your request and follow up shortly.",
+    assignedTeam: "Front Desk",
+  };
+}
+
 export const fallbackClassification: LeadClassification = {
+  serviceInterest: "Manual review required",
   leadTemperature: "Warm",
   urgency: "Medium",
   intentSummary: "AI classification failed. Manual review required.",
   recommendedAction: "Review and contact customer manually.",
+  suggestedReply:
+    "Thank you for contacting us. Our clinic team will review your request and follow up shortly.",
+  assignedTeam: "Front Desk",
 };
 
 const temperatures = new Set(["Hot", "Warm", "Cold"]);
@@ -29,6 +46,17 @@ Classification criteria:
 - Cold: the customer asks general questions and does not show a clear need yet.
 
 Based on the lead information, return valid JSON only. Do not use markdown. Do not add any explanation.
+
+Return exactly this JSON structure with all keys present:
+{
+  "serviceInterest": "string",
+  "leadTemperature": "Hot | Warm | Cold",
+  "urgency": "High | Medium | Low",
+  "intentSummary": "string",
+  "recommendedAction": "string",
+  "suggestedReply": "string",
+  "assignedTeam": "string"
+}
 
 Lead information:
 Name: ${lead.name}
@@ -52,6 +80,16 @@ function extractJson(content: string) {
   return JSON.parse(content.slice(firstBrace, lastBrace + 1));
 }
 
+function getRequiredString(data: Record<string, unknown>, key: string) {
+  const value = data[key];
+
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Groq response missed required string field: ${key}`);
+  }
+
+  return value.trim();
+}
+
 function normalizeClassification(value: unknown): LeadClassification {
   if (!value || typeof value !== "object") {
     throw new Error("Groq response was not an object");
@@ -60,7 +98,7 @@ function normalizeClassification(value: unknown): LeadClassification {
   const data = value as Record<string, unknown>;
   const leadTemperature =
     typeof data.leadTemperature === "string" &&
-    temperatures.has(data.leadTemperature)
+      temperatures.has(data.leadTemperature)
       ? data.leadTemperature
       : undefined;
   const urgency =
@@ -73,22 +111,13 @@ function normalizeClassification(value: unknown): LeadClassification {
   }
 
   return {
-    serviceInterest:
-      typeof data.serviceInterest === "string" ? data.serviceInterest : undefined,
+    serviceInterest: getRequiredString(data, "serviceInterest"),
     leadTemperature: leadTemperature as LeadClassification["leadTemperature"],
     urgency: urgency as LeadClassification["urgency"],
-    intentSummary:
-      typeof data.intentSummary === "string" && data.intentSummary.trim()
-        ? data.intentSummary
-        : fallbackClassification.intentSummary,
-    recommendedAction:
-      typeof data.recommendedAction === "string" && data.recommendedAction.trim()
-        ? data.recommendedAction
-        : fallbackClassification.recommendedAction,
-    suggestedReply:
-      typeof data.suggestedReply === "string" ? data.suggestedReply : undefined,
-    assignedTeam:
-      typeof data.assignedTeam === "string" ? data.assignedTeam : undefined,
+    intentSummary: getRequiredString(data, "intentSummary"),
+    recommendedAction: getRequiredString(data, "recommendedAction"),
+    suggestedReply: getRequiredString(data, "suggestedReply"),
+    assignedTeam: getRequiredString(data, "assignedTeam"),
   };
 }
 
@@ -99,7 +128,7 @@ export async function classifyLead(
 
   if (!apiKey) {
     console.warn("GROQ_API_KEY is missing. Using fallback lead classification.");
-    return fallbackClassification;
+    return getFallbackClassification(lead);
   }
 
   try {
@@ -135,6 +164,6 @@ export async function classifyLead(
     return normalizeClassification(extractJson(content));
   } catch (error) {
     console.error("Lead classification failed. Using fallback.", error);
-    return fallbackClassification;
+    return getFallbackClassification(lead);
   }
 }
