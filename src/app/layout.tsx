@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CareFlow AI",
+  title: "PulseLead AI",
   description:
     "Bilingual clinic lead capture, AI classification, and follow-up dashboard.",
 };

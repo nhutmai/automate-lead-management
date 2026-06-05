@@ -5,7 +5,9 @@ export type LeadClassification = {
   leadTemperature: "Hot" | "Warm" | "Cold";
   urgency: "High" | "Medium" | "Low";
   intentSummary: string;
+  intentSummaryVi: string;
   recommendedAction: string;
+  recommendedActionVi: string;
   suggestedReply: string;
   assignedTeam: string;
 };
@@ -16,7 +18,9 @@ function getFallbackClassification(lead?: LeadInput): LeadClassification {
     leadTemperature: "Warm",
     urgency: "Medium",
     intentSummary: "AI classification failed. Manual review required.",
+    intentSummaryVi: "AI phân loại thất bại. Cần kiểm tra thủ công.",
     recommendedAction: "Review and contact customer manually.",
+    recommendedActionVi: "Kiểm tra và liên hệ khách hàng thủ công.",
     suggestedReply:
       "Thank you for contacting us. Our clinic team will review your request and follow up shortly.",
     assignedTeam: "Front Desk",
@@ -28,7 +32,9 @@ export const fallbackClassification: LeadClassification = {
   leadTemperature: "Warm",
   urgency: "Medium",
   intentSummary: "AI classification failed. Manual review required.",
+  intentSummaryVi: "AI phân loại thất bại. Cần kiểm tra thủ công.",
   recommendedAction: "Review and contact customer manually.",
+  recommendedActionVi: "Kiểm tra và liên hệ khách hàng thủ công.",
   suggestedReply:
     "Thank you for contacting us. Our clinic team will review your request and follow up shortly.",
   assignedTeam: "Front Desk",
@@ -52,11 +58,18 @@ Return exactly this JSON structure with all keys present:
   "serviceInterest": "string",
   "leadTemperature": "Hot | Warm | Cold",
   "urgency": "High | Medium | Low",
-  "intentSummary": "string",
-  "recommendedAction": "string",
+  "intentSummary": "English summary string",
+  "intentSummaryVi": "Vietnamese summary string",
+  "recommendedAction": "English recommended action string",
+  "recommendedActionVi": "Vietnamese recommended action string",
   "suggestedReply": "string",
   "assignedTeam": "string"
 }
+
+Language requirements:
+- intentSummary and recommendedAction must be in English.
+- intentSummaryVi and recommendedActionVi must be natural Vietnamese.
+- The Vietnamese fields must preserve the same meaning and operational guidance as the English fields.
 
 Lead information:
 Name: ${lead.name}
@@ -115,7 +128,9 @@ function normalizeClassification(value: unknown): LeadClassification {
     leadTemperature: leadTemperature as LeadClassification["leadTemperature"],
     urgency: urgency as LeadClassification["urgency"],
     intentSummary: getRequiredString(data, "intentSummary"),
+    intentSummaryVi: getRequiredString(data, "intentSummaryVi"),
     recommendedAction: getRequiredString(data, "recommendedAction"),
+    recommendedActionVi: getRequiredString(data, "recommendedActionVi"),
     suggestedReply: getRequiredString(data, "suggestedReply"),
     assignedTeam: getRequiredString(data, "assignedTeam"),
   };

@@ -29,7 +29,9 @@ type Lead = {
   urgency: "High" | "Medium" | "Low" | string;
   status: "New" | "Contacted" | "Booked" | "Lost" | string;
   intentSummary: string | null;
+  intentSummaryVi: string | null;
   recommendedAction: string | null;
+  recommendedActionVi: string | null;
   createdAt: string;
 };
 
@@ -298,10 +300,16 @@ export default function Dashboard() {
                         </select>
                       </td>
                       <td className="max-w-72 px-4 py-4 leading-6 text-slate-600">
-                        {lead.intentSummary || t("manualReview")}
+                        {locale === "vi"
+                          ? lead.intentSummaryVi || lead.intentSummary || t("manualReview")
+                          : lead.intentSummary || t("manualReview")}
                       </td>
                       <td className="max-w-72 px-4 py-4 leading-6 text-slate-600">
-                        {lead.recommendedAction || t("contactLead")}
+                        {locale === "vi"
+                          ? lead.recommendedActionVi ||
+                            lead.recommendedAction ||
+                            t("contactLead")
+                          : lead.recommendedAction || t("contactLead")}
                       </td>
                     </tr>
                   ))}
