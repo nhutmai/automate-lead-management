@@ -11,6 +11,13 @@ import {
   ThermometerSun,
   Users,
 } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import {
+  statusOptions,
+  translateStatus,
+  useI18n,
+} from "@/lib/i18n";
 
 type Lead = {
   id: string;
@@ -34,9 +41,8 @@ type Metrics = {
   booked: number;
 };
 
-const statuses = ["New", "Contacted", "Booked", "Lost"];
-
 export default function Dashboard() {
+  const { locale, setLocale, t } = useI18n();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [metrics, setMetrics] = useState<Metrics>({
     total: 0,
@@ -60,13 +66,13 @@ export default function Dashboard() {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error || "Unable to load leads.");
+        throw new Error(payload.error || t("loadFailed"));
       }
 
       setLeads(payload.leads);
       setMetrics(payload.metrics);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Unable to load leads.");
+      setError(loadError instanceof Error ? loadError.message : t("loadFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +86,7 @@ export default function Dashboard() {
         const payload = await response.json();
 
         if (!response.ok) {
-          throw new Error(payload.error || "Unable to load leads.");
+          throw new Error(payload.error || t("loadFailed"));
         }
 
         if (isMounted) {
@@ -91,7 +97,7 @@ export default function Dashboard() {
       .catch((loadError) => {
         if (isMounted) {
           setError(
-            loadError instanceof Error ? loadError.message : "Unable to load leads.",
+            loadError instanceof Error ? loadError.message : t("loadFailed"),
           );
         }
       })
@@ -104,17 +110,17 @@ export default function Dashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   const cards = useMemo(
     () => [
-      { label: "Total leads", value: metrics.total, icon: Users },
-      { label: "Hot leads", value: metrics.hot, icon: Flame },
-      { label: "Warm leads", value: metrics.warm, icon: ThermometerSun },
-      { label: "Cold leads", value: metrics.cold, icon: Snowflake },
-      { label: "Booked leads", value: metrics.booked, icon: CalendarCheck },
+      { label: t("totalLeads"), value: metrics.total, icon: Users },
+      { label: t("hotLeads"), value: metrics.hot, icon: Flame },
+      { label: t("warmLeads"), value: metrics.warm, icon: ThermometerSun },
+      { label: t("coldLeads"), value: metrics.cold, icon: Snowflake },
+      { label: t("bookedLeads"), value: metrics.booked, icon: CalendarCheck },
     ],
-    [metrics],
+    [metrics, t],
   );
 
   async function updateStatus(id: string, status: string) {
@@ -130,7 +136,7 @@ export default function Dashboard() {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error || "Unable to update status.");
+        throw new Error(payload.error || t("updateFailed"));
       }
 
       setLeads((current) =>
@@ -139,7 +145,7 @@ export default function Dashboard() {
       await loadLeads();
     } catch (updateError) {
       setError(
-        updateError instanceof Error ? updateError.message : "Unable to update status.",
+        updateError instanceof Error ? updateError.message : t("updateFailed"),
       );
     } finally {
       setUpdatingId("");
@@ -149,6 +155,11 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-[#111827] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <BrandMark name={t("brandName")} tagline={t("brandTagline")} />
+          <LanguageToggle locale={locale} setLocale={setLocale} t={t} />
+        </div>
+
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Link
@@ -156,20 +167,20 @@ export default function Dashboard() {
               className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-700"
             >
               <ArrowLeft className="h-4 w-4" />
-              New lead form
+              {t("backToForm")}
             </Link>
             <h1 className="font-display text-4xl font-normal tracking-normal">
-              Lead dashboard
+              {t("dashboardTitle")}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              Latest 100 clinic inquiries, AI classification, and team status.
+              {t("dashboardBody")}
             </p>
           </div>
           <button
             onClick={() => loadLeads()}
             className="inline-flex h-10 items-center justify-center rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
           >
-            Refresh
+            {t("refresh")}
           </button>
         </div>
 
@@ -197,7 +208,7 @@ export default function Dashboard() {
 
         <div className="mt-6 overflow-hidden rounded-lg border border-blue-100 bg-white shadow-sm">
           <div className="border-b border-slate-200 px-4 py-3">
-            <h2 className="font-display text-2xl font-normal">Lead queue</h2>
+            <h2 className="font-display text-2xl font-normal">{t("leadQueue")}</h2>
           </div>
 
           {error ? (
@@ -209,11 +220,11 @@ export default function Dashboard() {
           {isLoading ? (
             <div className="flex min-h-64 items-center justify-center gap-2 text-sm font-medium text-slate-600">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading leads
+              {t("loadingLeads")}
             </div>
           ) : leads.length === 0 ? (
             <div className="flex min-h-64 items-center justify-center text-sm text-slate-500">
-              No leads captured yet.
+              {t("noLeads")}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -221,16 +232,16 @@ export default function Dashboard() {
                 <thead className="bg-blue-50 font-label text-xs uppercase text-slate-600">
                   <tr>
                     {[
-                      "Created",
-                      "Name",
-                      "Phone",
-                      "Source",
-                      "AI service",
-                      "Temp",
-                      "Urgency",
-                      "Status",
-                      "Intent summary",
-                      "Recommended action",
+                      t("created"),
+                      t("name"),
+                      t("phone"),
+                      t("source"),
+                      t("aiService"),
+                      t("temp"),
+                      t("urgency"),
+                      t("status"),
+                      t("intentSummary"),
+                      t("recommendedAction"),
                     ].map((heading) => (
                       <th key={heading} className="px-4 py-3 font-semibold">
                         {heading}
@@ -259,7 +270,7 @@ export default function Dashboard() {
                         {lead.source}
                       </td>
                       <td className="px-4 py-4 text-slate-700">
-                        {lead.aiServiceInterest || "Not specified"}
+                        {lead.aiServiceInterest || t("notSpecified")}
                       </td>
                       <td className="px-4 py-4">
                         <Badge value={lead.leadTemperature} />
@@ -276,16 +287,21 @@ export default function Dashboard() {
                           }
                           className="h-9 rounded-md border border-blue-200 bg-white px-2 text-sm font-medium text-slate-800 disabled:opacity-60"
                         >
-                          {statuses.map((status) => (
-                            <option key={status}>{status}</option>
+                          {statusOptions.map((status) => (
+                            <option key={status} value={status}>
+                              {translateStatus(
+                                status,
+                                t,
+                              )}
+                            </option>
                           ))}
                         </select>
                       </td>
                       <td className="max-w-72 px-4 py-4 leading-6 text-slate-600">
-                        {lead.intentSummary || "Manual review needed."}
+                        {lead.intentSummary || t("manualReview")}
                       </td>
                       <td className="max-w-72 px-4 py-4 leading-6 text-slate-600">
-                        {lead.recommendedAction || "Contact the lead."}
+                        {lead.recommendedAction || t("contactLead")}
                       </td>
                     </tr>
                   ))}

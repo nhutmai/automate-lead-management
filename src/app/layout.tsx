@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lead Management Automation",
-  description: "Clinic lead capture, AI classification, and follow-up dashboard.",
+  title: "CareFlow AI",
+  description:
+    "Bilingual clinic lead capture, AI classification, and follow-up dashboard.",
 };
 
 export default function RootLayout({

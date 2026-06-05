@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
-import { Activity, ArrowRight, CheckCircle2, Loader2, Send } from "lucide-react";
-
-const sources = ["Facebook Ads", "TikTok", "Website", "Referral", "Other"];
+import { ArrowRight, CheckCircle2, Loader2, Send } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { sourceOptions, useI18n } from "@/lib/i18n";
 
 type FormState = {
   name: string;
@@ -25,6 +26,7 @@ const initialForm: FormState = {
 };
 
 export default function Home() {
+  const { locale, setLocale, t } = useI18n();
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>(
     {},
@@ -46,10 +48,10 @@ export default function Home() {
   function validate() {
     const nextErrors: Partial<Record<keyof FormState, string>> = {};
 
-    if (!form.name.trim()) nextErrors.name = "Name is required.";
-    if (!form.phone.trim()) nextErrors.phone = "Phone is required.";
-    if (!form.source.trim()) nextErrors.source = "Source is required.";
-    if (!form.message.trim()) nextErrors.message = "Message is required.";
+    if (!form.name.trim()) nextErrors.name = t("requiredName");
+    if (!form.phone.trim()) nextErrors.phone = t("requiredPhone");
+    if (!form.source.trim()) nextErrors.source = t("requiredSource");
+    if (!form.message.trim()) nextErrors.message = t("requiredMessage");
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -78,18 +80,18 @@ export default function Home() {
             Object.fromEntries(
               Object.entries(payload.issues).map(([key, value]) => [
                 key,
-                Array.isArray(value) ? value[0] : "Invalid value.",
+                Array.isArray(value) ? value[0] : t("invalidValue"),
               ]),
             ) as Partial<Record<keyof FormState, string>>,
           );
         }
-        throw new Error(payload.error || "Lead submission failed.");
+        throw new Error(payload.error || t("submitFailed"));
       }
 
       setForm(initialForm);
-      setFeedback("Lead captured and routed for follow-up.");
+      setFeedback(t("successLead"));
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "Something went wrong.");
+      setFeedback(error instanceof Error ? error.message : t("genericError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -100,28 +102,27 @@ export default function Home() {
       <section className="mx-auto grid min-h-screen w-full max-w-7xl gap-10 px-5 py-8 md:grid-cols-[0.85fr_1.15fr] md:px-8 lg:px-10">
         <div className="flex flex-col justify-between gap-10 rounded-none py-4 md:py-10">
           <div>
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-2 font-label text-xs font-semibold uppercase text-blue-700 shadow-sm">
-              <Activity className="h-4 w-4" />
-              Clinic lead automation
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <BrandMark name={t("brandName")} tagline={t("brandTagline")} />
+              <LanguageToggle locale={locale} setLocale={setLocale} t={t} />
             </div>
             <h1 className="max-w-xl font-display text-4xl font-normal tracking-normal text-[#111827] sm:text-5xl">
-              Capture patient inquiries and classify intent instantly.
+              {t("heroTitle")}
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-slate-600">
-              Submit a new clinic lead, classify urgency with AI, notify the
-              team, and track every follow-up from the dashboard.
+              {t("heroBody")}
             </p>
             <Link
               href="/dashboard"
               className="mt-8 inline-flex h-11 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             >
-              Open dashboard
+              {t("openDashboard")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            {["AI triage", "Telegram alert", "Status tracking"].map((item) => (
+            {[t("valueAi"), t("valueTelegram"), t("valueStatus")].map((item) => (
               <div
                 key={item}
                 className="border-l-4 border-violet-500 bg-white px-4 py-3 font-label text-xs font-semibold uppercase text-slate-700 shadow-sm"
@@ -138,69 +139,71 @@ export default function Home() {
         >
           <div className="mb-6">
             <h2 className="font-display text-2xl font-normal text-[#111827]">
-              New lead
+              {t("newLead")}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Required fields are checked before the request reaches the API.
+              {t("formHelp")}
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Name" error={errors.name} required>
+            <Field label={t("name")} error={errors.name} required>
               <input
                 value={form.name}
                 onChange={(event) => updateField("name", event.target.value)}
                 className="input"
-                placeholder="Mai Nguyen"
+                placeholder={t("namePlaceholder")}
               />
             </Field>
-            <Field label="Phone" error={errors.phone} required>
+            <Field label={t("phone")} error={errors.phone} required>
               <input
                 value={form.phone}
                 onChange={(event) => updateField("phone", event.target.value)}
                 className="input"
-                placeholder="+84 901 234 567"
+                placeholder={t("phonePlaceholder")}
               />
             </Field>
-            <Field label="Email" error={errors.email}>
+            <Field label={t("email")} error={errors.email}>
               <input
                 value={form.email}
                 onChange={(event) => updateField("email", event.target.value)}
                 className="input"
-                placeholder="patient@example.com"
+                placeholder={t("emailPlaceholder")}
                 type="email"
               />
             </Field>
-            <Field label="Source" error={errors.source} required>
+            <Field label={t("source")} error={errors.source} required>
               <select
                 value={form.source}
                 onChange={(event) => updateField("source", event.target.value)}
                 className="input"
               >
-                {sources.map((source) => (
-                  <option key={source}>{source}</option>
+                {sourceOptions.map((source) => (
+                  <option key={source.value} value={source.value}>
+                    {t(source.labelKey)}
+                  </option>
                 ))}
               </select>
             </Field>
           </div>
 
-          <Field label="Service interest" error={errors.serviceInterest}>
+          <Field label={t("serviceInterest")} error={errors.serviceInterest}>
             <input
               value={form.serviceInterest}
               onChange={(event) =>
                 updateField("serviceInterest", event.target.value)
               }
               className="input"
-              placeholder="Dental implant consultation"
+              placeholder={t("servicePlaceholder")}
             />
           </Field>
 
-          <Field label="Message" error={errors.message} required>
+          <Field label={t("message")} error={errors.message} required>
             <textarea
               value={form.message}
               onChange={(event) => updateField("message", event.target.value)}
               className="input min-h-36 resize-y"
-              placeholder="I want to book an appointment this week and need pricing details."
+              placeholder={t("messagePlaceholder")}
             />
           </Field>
 
@@ -215,18 +218,18 @@ export default function Home() {
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              Submit lead
+              {isSubmitting ? t("submitting") : t("submitLead")}
             </button>
 
             {feedback ? (
               <p
                 className={`inline-flex items-center gap-2 text-sm font-medium ${
-                  feedback.includes("captured")
+                  feedback === t("successLead")
                     ? "text-green-700"
                     : "text-rose-700"
                 }`}
               >
-                {feedback.includes("captured") ? (
+                {feedback === t("successLead") ? (
                   <CheckCircle2 className="h-4 w-4" />
                 ) : null}
                 {feedback}
