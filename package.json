@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postinstall": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/lead_management?schema=public} prisma generate",
     "start": "next start",
     "lint": "eslint",
     "prisma:generate": "prisma generate",
