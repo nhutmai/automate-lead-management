@@ -18,7 +18,9 @@ model Lead {
   leadTemperature         String
   urgency                 String
   intentSummary           String?
+  intentSummaryVi         String?
   recommendedAction       String?
+  recommendedActionVi     String?
   suggestedReply          String?
   assignedTeam            String?
   status                  String   @default("New")

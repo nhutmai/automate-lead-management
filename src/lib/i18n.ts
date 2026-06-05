@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export type Locale = "en" | "vi";
 
-const localeKey = "careflow-locale";
+const localeKey = "pulselead-locale";
 
 export const sourceOptions = [
   { value: "Facebook Ads", labelKey: "sourceFacebook" },
@@ -18,7 +18,7 @@ export const statusOptions = ["New", "Contacted", "Booked", "Lost"] as const;
 
 export const translations = {
   en: {
-    brandName: "CareFlow AI",
+    brandName: "PulseLead AI",
     brandTagline: "Clinic lead automation",
     languageLabel: "Language",
     english: "EN",
@@ -90,7 +90,7 @@ export const translations = {
     statusLost: "Lost",
   },
   vi: {
-    brandName: "CareFlow AI",
+    brandName: "PulseLead AI",
     brandTagline: "Tự động hóa lead phòng khám",
     languageLabel: "Ngôn ngữ",
     english: "EN",
@@ -131,11 +131,11 @@ export const translations = {
     dashboardBody:
       "100 lead phòng khám mới nhất, phân loại bởi AI và trạng thái xử lý của đội ngũ.",
     refresh: "Làm mới",
-    totalLeads: "Tổng lead",
-    hotLeads: "Lead nóng",
-    warmLeads: "Lead ấm",
-    coldLeads: "Lead lạnh",
-    bookedLeads: "Đã đặt lịch",
+    totalLeads: "Tổng khách quan tâm",
+    hotLeads: "Cần ưu tiên",
+    warmLeads: "Đang cân nhắc",
+    coldLeads: "Mới tham khảo",
+    bookedLeads: "Đã hẹn lịch",
     leadQueue: "Danh sách lead",
     loadingLeads: "Đang tải lead",
     noLeads: "Chưa có lead nào.",
