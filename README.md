@@ -14,6 +14,19 @@ Lead Form (/)
   -> Dashboard (/dashboard)
 ```
 
+Chat intake demo:
+
+```text
+AI Chat Intake (/chat)
+  -> POST /api/chat/intake
+  -> Extract name, phone, and service interest
+  -> Shared lead creation pipeline
+  -> Groq AI classification
+  -> Prisma save to PostgreSQL
+  -> Telegram notification
+  -> Dashboard (/dashboard)
+```
+
 Luồng chi tiết:
 
 1. Người dùng nhập lead ở trang `/` gồm tên, số điện thoại, email, nguồn, dịch vụ quan tâm và nội dung tư vấn.
@@ -74,6 +87,7 @@ Cấu hình gọi Groq hiện tại:
 ## Tính năng chính
 
 - Form tạo lead song ngữ Anh/Vi.
+- AI Chat Intake Widget mô phỏng luồng chat website kiểu Messenger.
 - Validate required fields ở frontend và backend.
 - AI phân loại dịch vụ, nhiệt độ lead, mức độ khẩn cấp, tóm tắt nhu cầu và hành động đề xuất.
 - Lưu lead vào PostgreSQL bằng Prisma.
@@ -81,6 +95,18 @@ Cấu hình gọi Groq hiện tại:
 - Dashboard xem 100 lead mới nhất.
 - Metrics: tổng lead, Hot, Warm, Cold, Booked.
 - Cập nhật trạng thái lead: `New`, `Contacted`, `Booked`, `Lost`.
+
+## AI Chat Intake Widget
+
+Trang `/chat` mô phỏng một Messenger-like lead intake flow ngay trong website. Đây không phải tích hợp Messenger thật; widget được trình bày là kênh `Website Chat` để demo cách khách hàng phòng khám có thể trò chuyện với AI assistant, để lại nhu cầu, tên và số điện thoại, rồi được chuyển thành lead CRM.
+
+Luồng này dùng cùng core pipeline như Messenger hoặc các kênh chat khác:
+
+```text
+message intake -> AI triage -> CRM save -> team notification -> dashboard tracking
+```
+
+API `POST /api/chat/intake` nhận mảng `messages`, trích xuất đơn giản bằng regex/heuristics, hỏi tiếp nếu thiếu `name`, `phone`, hoặc `serviceInterest`, và khi đủ thông tin sẽ tạo lead với `source = "Website Chat"`. Real Messenger integration có thể được thêm sau qua Meta Webhooks như một channel adapter khác. Zalo OA hoặc các kênh khác cũng có thể đi vào cùng pipeline bằng adapter tương tự.
 
 ## Tech Stack
 
@@ -99,10 +125,14 @@ Cấu hình gọi Groq hiện tại:
 
 ```text
 src/app/page.tsx                  Lead form
+src/app/chat/page.tsx             AI Chat Intake Widget
 src/app/dashboard/page.tsx        Dashboard quản lý lead
 src/app/api/leads/route.ts        GET/POST lead API
 src/app/api/leads/[id]/route.ts   PATCH status API
+src/app/api/chat/intake/route.ts  Chat intake API
 src/lib/ai.ts                     Prompt + Groq classification
+src/lib/chat-intake.ts            Chat extraction and reply logic
+src/lib/leads.ts                  Shared lead creation pipeline
 src/lib/telegram.ts               Telegram notification
 src/lib/validation.ts             Zod schemas
 src/lib/prisma.ts                 Prisma client
@@ -196,6 +226,7 @@ npm run dev
 Mở:
 
 - Lead form: http://localhost:3000
+- AI Chat Intake: http://localhost:3000/chat
 - Dashboard: http://localhost:3000/dashboard
 
 ## API
@@ -218,6 +249,35 @@ Body:
 ```
 
 Kết quả: lưu lead kèm phân loại AI và trả về `{ "lead": ... }`.
+
+### `POST /api/chat/intake`
+
+Xử lý một cuộc trò chuyện intake và tạo lead khi đủ thông tin.
+
+Body:
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "I want a dental implant consultation. My name is Mai Nguyen."
+    },
+    {
+      "role": "assistant",
+      "content": "What phone number should the clinic team use to follow up?"
+    },
+    {
+      "role": "user",
+      "content": "+84 901 234 567"
+    }
+  ]
+}
+```
+
+Kết quả khi còn thiếu thông tin: `{ "reply": "...", "leadCreated": false }`.
+
+Kết quả khi đủ thông tin: `{ "reply": "...", "leadCreated": true, "lead": ... }`.
 
 ### `GET /api/leads`
 
