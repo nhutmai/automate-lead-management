@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Loader2, Send } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, MessageCircle, Send } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { sourceOptions, useI18n } from "@/lib/i18n";
@@ -112,13 +112,22 @@ export default function Home() {
             <p className="mt-5 max-w-lg text-base leading-7 text-slate-600">
               {t("heroBody")}
             </p>
-            <Link
-              href="/dashboard"
-              className="mt-8 inline-flex h-11 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-            >
-              {t("openDashboard")}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex h-11 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              >
+                {t("openDashboard")}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/chat"
+                className="inline-flex h-11 items-center gap-2 rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
+              >
+                AI Chat Intake
+                <MessageCircle className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">

@@ -32,6 +32,8 @@ type Lead = {
   intentSummaryVi: string | null;
   recommendedAction: string | null;
   recommendedActionVi: string | null;
+  suggestedReply: string | null;
+  assignedTeam: string | null;
   createdAt: string;
 };
 
@@ -43,61 +45,119 @@ type Metrics = {
   booked: number;
 };
 
+type LeadsPayload = {
+  leads: Lead[];
+  metrics: Metrics;
+};
+
+// Short TTL keeps the dashboard snappy without hiding new intake activity for long.
+const leadsCacheTtlMs = 60_000;
+let leadsCache:
+  | {
+      payload: LeadsPayload;
+      savedAt: number;
+    }
+  | undefined;
+
+function getFreshLeadsCache() {
+  if (!leadsCache) return undefined;
+  if (Date.now() - leadsCache.savedAt > leadsCacheTtlMs) return undefined;
+
+  return leadsCache.payload;
+}
+
+function setLeadsCache(payload: LeadsPayload) {
+  leadsCache = {
+    payload,
+    savedAt: Date.now(),
+  };
+}
+
+async function fetchLeads(errorMessage: string): Promise<LeadsPayload> {
+  const response = await fetch("/api/leads", { cache: "no-store" });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error || errorMessage);
+  }
+
+  return {
+    leads: payload.leads,
+    metrics: payload.metrics,
+  };
+}
+
 export default function Dashboard() {
   const { locale, setLocale, t } = useI18n();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [metrics, setMetrics] = useState<Metrics>({
-    total: 0,
-    hot: 0,
-    warm: 0,
-    cold: 0,
-    booked: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  const initialCachedPayload = getFreshLeadsCache();
+  const [leads, setLeads] = useState<Lead[]>(
+    () => initialCachedPayload?.leads ?? [],
+  );
+  const [metrics, setMetrics] = useState<Metrics>(
+    () =>
+      initialCachedPayload?.metrics ?? {
+        total: 0,
+        hot: 0,
+        warm: 0,
+        cold: 0,
+        booked: 0,
+      },
+  );
+  const [isLoading, setIsLoading] = useState(() => !initialCachedPayload);
+  const [isRefreshing, setIsRefreshing] = useState(
+    () => Boolean(initialCachedPayload),
+  );
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(() =>
+    initialCachedPayload ? new Date() : null,
+  );
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState("");
 
-  async function loadLeads(showLoading = true) {
-    if (showLoading) {
+  function applyLeadsPayload(payload: LeadsPayload) {
+    setLeads(payload.leads);
+    setMetrics(payload.metrics);
+    setLastUpdatedAt(new Date());
+  }
+
+  async function loadLeads(showLoading = true, options = { silentError: false }) {
+    if (showLoading && !leadsCache) {
       setIsLoading(true);
-      setError("");
+    } else {
+      setIsRefreshing(true);
     }
+    setError("");
 
     try {
-      const response = await fetch("/api/leads", { cache: "no-store" });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || t("loadFailed"));
-      }
-
-      setLeads(payload.leads);
-      setMetrics(payload.metrics);
+      const payload = await fetchLeads(t("loadFailed"));
+      setLeadsCache(payload);
+      applyLeadsPayload(payload);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("loadFailed"));
+      if (!options.silentError) {
+        setError(
+          loadError instanceof Error ? loadError.message : t("loadFailed"),
+        );
+      }
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }
 
   useEffect(() => {
     let isMounted = true;
+    const cachedPayload = getFreshLeadsCache();
 
-    fetch("/api/leads", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload.error || t("loadFailed"));
-        }
+    fetchLeads(t("loadFailed"))
+      .then((payload) => {
+        setLeadsCache(payload);
 
         if (isMounted) {
-          setLeads(payload.leads);
-          setMetrics(payload.metrics);
+          applyLeadsPayload(payload);
+          setError("");
         }
       })
       .catch((loadError) => {
-        if (isMounted) {
+        if (isMounted && !cachedPayload) {
           setError(
             loadError instanceof Error ? loadError.message : t("loadFailed"),
           );
@@ -106,6 +166,7 @@ export default function Dashboard() {
       .finally(() => {
         if (isMounted) {
           setIsLoading(false);
+          setIsRefreshing(false);
         }
       });
 
@@ -144,7 +205,7 @@ export default function Dashboard() {
       setLeads((current) =>
         current.map((lead) => (lead.id === id ? payload.lead : lead)),
       );
-      await loadLeads();
+      await loadLeads(false);
     } catch (updateError) {
       setError(
         updateError instanceof Error ? updateError.message : t("updateFailed"),
@@ -152,6 +213,23 @@ export default function Dashboard() {
     } finally {
       setUpdatingId("");
     }
+  }
+
+  function formatCreatedAt(value: string) {
+    return new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en", {
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  }
+
+  function formatUpdatedAt(value: Date) {
+    return new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(value);
   }
 
   return (
@@ -178,12 +256,24 @@ export default function Dashboard() {
               {t("dashboardBody")}
             </p>
           </div>
-          <button
-            onClick={() => loadLeads()}
-            className="inline-flex h-10 items-center justify-center rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
-          >
-            {t("refresh")}
-          </button>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <button
+              onClick={() => loadLeads()}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
+            >
+              {t("refresh")}
+            </button>
+            <p className="min-h-5 text-xs font-medium text-slate-500">
+              {isRefreshing ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t("refreshing")}
+                </span>
+              ) : lastUpdatedAt ? (
+                `${t("updated")} ${formatUpdatedAt(lastUpdatedAt)}`
+              ) : null}
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -230,37 +320,49 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
+              <table className="min-w-[1540px] w-full border-collapse text-left text-sm">
                 <thead className="bg-blue-50 font-label text-xs uppercase text-slate-600">
                   <tr>
-                    {[
-                      t("created"),
-                      t("name"),
-                      t("phone"),
-                      t("source"),
-                      t("aiService"),
-                      t("temp"),
-                      t("urgency"),
-                      t("status"),
-                      t("intentSummary"),
-                      t("recommendedAction"),
-                    ].map((heading) => (
-                      <th key={heading} className="px-4 py-3 font-semibold">
-                        {heading}
-                      </th>
-                    ))}
+                    <th className="w-36 px-4 py-3 font-semibold">
+                      {t("created")}
+                    </th>
+                    <th className="w-44 px-4 py-3 font-semibold">
+                      {t("name")}
+                    </th>
+                    <th className="w-36 px-4 py-3 font-semibold">
+                      {t("phone")}
+                    </th>
+                    <th className="w-36 px-4 py-3 font-semibold">
+                      {t("source")}
+                    </th>
+                    <th className="w-28 px-4 py-3 font-semibold">
+                      {t("temp")}
+                    </th>
+                    <th className="w-28 px-4 py-3 font-semibold">
+                      {t("urgency")}
+                    </th>
+                    <th className="w-40 px-4 py-3 font-semibold">
+                      {t("status")}
+                    </th>
+                    <th className="w-44 px-4 py-3 font-semibold">
+                      {t("assignedTeam")}
+                    </th>
+                    <th className="w-72 px-4 py-3 font-semibold">
+                      {t("intentSummary")}
+                    </th>
+                    <th className="w-72 px-4 py-3 font-semibold">
+                      {t("recommendedAction")}
+                    </th>
+                    <th className="w-80 px-4 py-3 font-semibold">
+                      {t("suggestedReply")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {leads.map((lead) => (
                     <tr key={lead.id} className="align-top">
                       <td className="whitespace-nowrap px-4 py-4 text-slate-600">
-                        {new Intl.DateTimeFormat("en", {
-                          month: "short",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(lead.createdAt))}
+                        {formatCreatedAt(lead.createdAt)}
                       </td>
                       <td className="px-4 py-4 font-semibold text-slate-950">
                         {lead.name}
@@ -270,9 +372,6 @@ export default function Dashboard() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-slate-700">
                         {lead.source}
-                      </td>
-                      <td className="px-4 py-4 text-slate-700">
-                        {lead.aiServiceInterest || t("notSpecified")}
                       </td>
                       <td className="px-4 py-4">
                         <Badge value={lead.leadTemperature} />
@@ -299,6 +398,9 @@ export default function Dashboard() {
                           ))}
                         </select>
                       </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-slate-700">
+                        {lead.assignedTeam || t("notSpecified")}
+                      </td>
                       <td className="max-w-72 px-4 py-4 leading-6 text-slate-600">
                         {locale === "vi"
                           ? lead.intentSummaryVi || lead.intentSummary || t("manualReview")
@@ -307,9 +409,12 @@ export default function Dashboard() {
                       <td className="max-w-72 px-4 py-4 leading-6 text-slate-600">
                         {locale === "vi"
                           ? lead.recommendedActionVi ||
-                            lead.recommendedAction ||
-                            t("contactLead")
+                          lead.recommendedAction ||
+                          t("contactLead")
                           : lead.recommendedAction || t("contactLead")}
+                      </td>
+                      <td className="max-w-80 px-4 py-4 leading-6 text-slate-600">
+                        {lead.suggestedReply || t("notSpecified")}
                       </td>
                     </tr>
                   ))}
@@ -335,9 +440,8 @@ function Badge({ value }: { value: string }) {
 
   return (
     <span
-      className={`inline-flex min-w-16 justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
-        styles[value] || "border-slate-200 bg-slate-50 text-slate-700"
-      }`}
+      className={`inline-flex min-w-16 justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[value] || "border-slate-200 bg-slate-50 text-slate-700"
+        }`}
     >
       {value}
     </span>
