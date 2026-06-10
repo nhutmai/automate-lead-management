@@ -1,3 +1,15 @@
+## Demo Video
+
+> Watch the MVP demo: lead form, AI chat intake, dashboard and Google Sheets sync.
+
+[![Watch the demo](https://img.shields.io/badge/Watch%20Demo-Video-blue?style=for-the-badge)](https://canva.link/ae4uvyk9i0wqeoq)
+
+## URL-Website
+
+```
+https://automate-lead-management.vercel.app
+```
+
 # PulseLead AI - Automate Lead Management
 
 PulseLead AI là MVP quản lý lead cho phòng khám/dịch vụ chăm sóc sức khỏe. Ứng dụng nhận thông tin khách hàng từ form, dùng AI để phân loại mức độ quan tâm, lưu vào PostgreSQL, gửi thông báo Telegram cho đội ngũ và hiển thị dashboard để theo dõi xử lý.
