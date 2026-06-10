@@ -105,7 +105,9 @@ export function extractLeadInput(messages: ChatMessage[]): Partial<LeadInput> {
 
 export function getMissingLeadFields(lead: Partial<LeadInput>) {
   return [
-    !lead.serviceInterest ? "serviceInterest" : "",
+    !lead.serviceInterest || isGenericServiceInterest(lead.serviceInterest)
+      ? "serviceInterest"
+      : "",
     !lead.name ? "name" : "",
     !lead.phone ? "phone" : "",
   ].filter(Boolean);
@@ -177,6 +179,29 @@ function extractFromPromptedReplies(messages: ChatMessage[]) {
   });
 
   return result;
+}
+
+function isGenericServiceInterest(value?: string) {
+  if (!value) return true;
+
+  const normalized = value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  const genericPatterns = [
+    "gia dich vu",
+    "bao gia dich vu",
+    "hoi gia dich vu",
+    "tu van dich vu",
+    "dich vu phong kham",
+    "service price",
+    "pricing",
+    "price",
+  ];
+
+  return genericPatterns.some((pattern) => normalized === pattern);
 }
 
 const assistantReplies = {
