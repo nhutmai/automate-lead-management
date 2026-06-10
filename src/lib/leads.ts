@@ -32,9 +32,11 @@ export async function createLeadFromInput(data: LeadInput) {
     console.error("Telegram notification failed after lead creation.", error);
   });
 
-  appendLeadToGoogleSheet(lead).catch((error) => {
+  try {
+    await appendLeadToGoogleSheet(lead);
+  } catch (error) {
     console.error("Google Sheets sync failed after lead creation.", error);
-  });
+  }
 
   return lead;
 }

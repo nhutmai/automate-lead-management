@@ -255,6 +255,7 @@ Lưu ý:
 - App chỉ append lead mới. Các lead cũ trong database sẽ không tự sync lên Sheet.
 - Dashboard có nút `Google Sheet` trỏ đến `GOOGLE_SHEET_URL`. Nếu thiếu URL này, app tự dựng link từ `GOOGLE_SHEET_ID`.
 - Nếu Google Sheets API lỗi, app log lỗi `Google Sheets sync failed after lead creation.` và vẫn trả kết quả tạo lead thành công.
+- Trên Vercel, sau khi thêm hoặc sửa env variables cần redeploy để function nhận cấu hình mới. Log thành công sẽ có dạng `Google Sheets sync succeeded for lead ...`.
 
 ### 3. Chạy PostgreSQL bằng Docker
 

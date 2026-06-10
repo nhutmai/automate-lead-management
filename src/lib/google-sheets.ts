@@ -3,6 +3,8 @@ import type { Lead } from "@prisma/client";
 
 const googleTokenUrl = "https://oauth2.googleapis.com/token";
 const googleSheetsScope = "https://www.googleapis.com/auth/spreadsheets";
+const googleRequestTimeoutMs = 8_000;
+const googleRequestRetries = 2;
 
 function base64UrlEncode(value: string | Buffer) {
   return Buffer.from(value)
@@ -61,7 +63,7 @@ async function getGoogleAccessToken() {
     .sign(privateKey);
   const assertion = `${unsignedToken}.${base64UrlEncode(signature)}`;
 
-  const response = await fetch(googleTokenUrl, {
+  const response = await fetchWithRetry(googleTokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -114,7 +116,7 @@ export async function appendLeadToGoogleSheet(lead: Lead) {
 
   const accessToken = await getGoogleAccessToken();
   const range = encodeURIComponent(`${tabName}!A:K`);
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
@@ -132,4 +134,41 @@ export async function appendLeadToGoogleSheet(lead: Lead) {
     const details = await response.text();
     throw new Error(`Google Sheets append failed: ${response.status} ${details}`);
   }
+
+  console.info(`Google Sheets sync succeeded for lead ${lead.id}.`);
+}
+
+async function fetchWithRetry(url: string, init: RequestInit) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= googleRequestRetries; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(googleRequestTimeoutMs),
+      });
+
+      if (response.status >= 500 && attempt < googleRequestRetries) {
+        await delay(300 * (attempt + 1));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < googleRequestRetries) {
+        await delay(300 * (attempt + 1));
+        continue;
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Google request failed.");
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

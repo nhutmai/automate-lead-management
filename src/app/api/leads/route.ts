@@ -3,6 +3,8 @@ import { createLeadFromInput } from "@/lib/leads";
 import { prisma } from "@/lib/prisma";
 import { leadInputSchema } from "@/lib/validation";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   try {
     const leads = await prisma.lead.findMany({

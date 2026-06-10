@@ -9,6 +9,8 @@ import {
 import { createLeadFromInput } from "@/lib/leads";
 import { leadInputSchema } from "@/lib/validation";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
