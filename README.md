@@ -11,6 +11,7 @@ Lead Form (/)
   -> Groq AI classification
   -> Prisma save to PostgreSQL
   -> Telegram notification
+  -> Google Sheets append
   -> Dashboard (/dashboard)
 ```
 
@@ -24,6 +25,7 @@ AI Chat Intake (/chat)
   -> Groq AI classification
   -> Prisma save to PostgreSQL
   -> Telegram notification
+  -> Google Sheets append
   -> Dashboard (/dashboard)
 ```
 
@@ -35,10 +37,11 @@ Luồng chi tiết:
 4. `src/lib/ai.ts` gửi prompt đến Groq Chat Completions API để phân loại lead.
 5. Kết quả AI được chuẩn hóa thành JSON rồi lưu cùng lead vào bảng `Lead` qua Prisma.
 6. Sau khi lưu thành công, `src/lib/telegram.ts` gửi thông báo Telegram nếu có `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID`.
-7. Dashboard gọi `GET /api/leads` để lấy 100 lead mới nhất và metrics tổng quan.
-8. Dashboard cập nhật trạng thái lead qua `PATCH /api/leads/[id]`.
+7. `src/lib/google-sheets.ts` append lead mới vào Google Sheet nếu có cấu hình Service Account.
+8. Dashboard gọi `GET /api/leads` để lấy 100 lead mới nhất và metrics tổng quan.
+9. Dashboard cập nhật trạng thái lead qua `PATCH /api/leads/[id]`.
 
-Nếu Groq lỗi hoặc thiếu `GROQ_API_KEY`, hệ thống vẫn tạo lead bằng fallback classification: `Warm`, `Medium`, yêu cầu kiểm tra thủ công. Nếu Telegram lỗi hoặc thiếu biến môi trường, lead vẫn được tạo thành công.
+Nếu Groq lỗi hoặc thiếu `GROQ_API_KEY`, hệ thống vẫn tạo lead bằng fallback classification: `Warm`, `Medium`, yêu cầu kiểm tra thủ công. Nếu Telegram hoặc Google Sheets lỗi/thiếu biến môi trường, lead vẫn được tạo thành công trong database.
 
 ## Prompt AI
 
@@ -92,6 +95,7 @@ Cấu hình gọi Groq hiện tại:
 - AI phân loại dịch vụ, nhiệt độ lead, mức độ khẩn cấp, tóm tắt nhu cầu và hành động đề xuất.
 - Lưu lead vào PostgreSQL bằng Prisma.
 - Gửi Telegram alert sau khi tạo lead.
+- Ghi lead mới vào Google Sheets bằng Service Account nếu được cấu hình.
 - Dashboard xem 100 lead mới nhất.
 - Metrics: tổng lead, Hot, Warm, Cold, Booked.
 - Cập nhật trạng thái lead: `New`, `Contacted`, `Booked`, `Lost`.
@@ -118,6 +122,7 @@ API `POST /api/chat/intake` nhận mảng `messages`, trích xuất đơn giản
 - PostgreSQL
 - Groq Chat Completions API
 - Telegram Bot API
+- Google Sheets API
 - Zod
 - Lucide React icons
 
@@ -133,6 +138,7 @@ src/app/api/chat/intake/route.ts  Chat intake API
 src/lib/ai.ts                     Prompt + Groq classification
 src/lib/chat-intake.ts            Chat extraction and reply logic
 src/lib/leads.ts                  Shared lead creation pipeline
+src/lib/google-sheets.ts          Google Sheets append integration
 src/lib/telegram.ts               Telegram notification
 src/lib/validation.ts             Zod schemas
 src/lib/prisma.ts                 Prisma client
@@ -177,6 +183,11 @@ GROQ_API_KEY=""
 GROQ_MODEL="llama-3.1-8b-instant"
 TELEGRAM_BOT_TOKEN=""
 TELEGRAM_CHAT_ID=""
+GOOGLE_SERVICE_ACCOUNT_EMAIL=""
+GOOGLE_PRIVATE_KEY=""
+GOOGLE_SHEET_ID=""
+GOOGLE_SHEET_TAB="Leads"
+GOOGLE_SHEET_URL=""
 ```
 
 Ghi chú:
@@ -184,6 +195,66 @@ Ghi chú:
 - `GROQ_API_KEY` cần có để AI phân loại thật.
 - Nếu không có `GROQ_API_KEY`, app dùng fallback classification.
 - `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID` là tùy chọn cho local demo.
+- Google Sheets env là tùy chọn. Nếu thiếu hoặc gọi API lỗi, lead vẫn được lưu vào PostgreSQL.
+
+### Google Sheets integration
+
+Ứng dụng dùng Service Account để append lead mới vào Google Sheet sau khi tạo lead thành công. Đây là luồng backend-to-backend, không cần người dùng login Google.
+
+Thứ tự cột được ghi giống dashboard:
+
+```text
+THỜI GIAN
+HỌ TÊN
+SỐ ĐIỆN THOẠI
+NGUỒN
+MỨC ĐỘ
+ƯU TIÊN
+TRẠNG THÁI
+ASSIGNED TEAM
+TÓM TẮT NHU CẦU
+HÀNH ĐỘNG ĐỀ XUẤT
+SUGGESTED REPLY
+```
+
+Các bước lấy credentials:
+
+1. Vào [Google Cloud Console](https://console.cloud.google.com/).
+2. Tạo project mới hoặc chọn project hiện có.
+3. Vào `APIs & Services` -> `Library`, tìm và enable `Google Sheets API`.
+4. Vào `APIs & Services` -> `Credentials`.
+5. Chọn `Create credentials` -> `Service account`.
+6. Tạo service account, ví dụ `pulselead-sheets-writer`.
+7. Sau khi tạo xong, mở service account đó -> tab `Keys`.
+8. Chọn `Add key` -> `Create new key` -> `JSON`.
+9. Tải file JSON về máy. Trong file này cần 2 giá trị:
+   - `client_email` -> copy vào `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+   - `private_key` -> copy vào `GOOGLE_PRIVATE_KEY`
+10. Tạo Google Sheet để lưu danh sách lead.
+11. Share Google Sheet đó cho email service account ở bước 9 với quyền `Editor`.
+12. Copy Spreadsheet ID từ URL Google Sheet:
+
+```text
+https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+```
+
+13. Tạo tab trong Sheet, ví dụ `Leads`, rồi điền:
+
+```env
+GOOGLE_SERVICE_ACCOUNT_EMAIL="pulselead-sheets-writer@your-project.iam.gserviceaccount.com"
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEET_ID="SPREADSHEET_ID"
+GOOGLE_SHEET_TAB="Leads"
+GOOGLE_SHEET_URL="https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit"
+```
+
+Lưu ý:
+
+- Khi copy `private_key` vào `.env`, giữ `\n` trong chuỗi hoặc dùng dạng một dòng có `\n`.
+- Không commit `.env` hoặc file JSON credentials lên git.
+- App chỉ append lead mới. Các lead cũ trong database sẽ không tự sync lên Sheet.
+- Dashboard có nút `Google Sheet` trỏ đến `GOOGLE_SHEET_URL`. Nếu thiếu URL này, app tự dựng link từ `GOOGLE_SHEET_ID`.
+- Nếu Google Sheets API lỗi, app log lỗi `Google Sheets sync failed after lead creation.` và vẫn trả kết quả tạo lead thành công.
 
 ### 3. Chạy PostgreSQL bằng Docker
 

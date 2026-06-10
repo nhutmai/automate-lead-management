@@ -1,4 +1,5 @@
 import { classifyLead } from "@/lib/ai";
+import { appendLeadToGoogleSheet } from "@/lib/google-sheets";
 import { prisma } from "@/lib/prisma";
 import { sendLeadNotification } from "@/lib/telegram";
 import type { LeadInput } from "@/lib/validation";
@@ -29,6 +30,10 @@ export async function createLeadFromInput(data: LeadInput) {
 
   sendLeadNotification(lead).catch((error) => {
     console.error("Telegram notification failed after lead creation.", error);
+  });
+
+  appendLeadToGoogleSheet(lead).catch((error) => {
+    console.error("Google Sheets sync failed after lead creation.", error);
   });
 
   return lead;
